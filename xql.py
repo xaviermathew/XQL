@@ -1,17 +1,18 @@
 import copy
 import itertools
+import logging
 
 from parsimonious.grammar import Grammar
 from parsimonious.nodes import NodeVisitor
 
-
+_LOG = logging.getLogger(__name__)
 grammar = Grammar("""
      bold_text  = bracket_open collected_item (for current_item in current_iterable )+ bracket_close
      for = " for "
      in = " in "
      current_iterable      = ~"[A-Za-z0-9_]+"
      current_item  = ~"[A-Za-z0-9_]+"
-     collected_item = ~"[A-Za-z0-9_\(\),\+\-\\\*]+"
+     collected_item = ~"[A-Za-z0-9_\(\)\[\],\{\},\+\-\\\*:']+"
      bracket_open  = "["
      bracket_close = "]"
 """)
@@ -27,8 +28,7 @@ class XQL(NodeVisitor):
         self.ctx = {}
 
     def generic_visit(self, node, children):
-        # print 'UNPARSED', node.text
-        pass
+        _LOG.debug('UNPARSED:%s', node.text)
 
     def visit_collected_item(self, node, children):
         self.collected_item = node.text
@@ -60,16 +60,16 @@ class XQL(NodeVisitor):
             current_iterable, current_item = iterations.pop()
             citr = self.ctx[current_iterable]
             citm = self.ctx[current_item]
-            print 'current_iterable:%s value:%s' % (current_iterable, citr)
-            print 'current_item:%s value:%s' % (current_item, citm)
-            print 'ctx', self.ctx
+            _LOG.debug('current_iterable:%s value:%s', current_iterable, citr)
+            _LOG.debug('current_item:%s value:%s', current_item, citm)
+            _LOG.debug('ctx:%s', self.ctx)
             for citm in [citm] + list(citr):
                 self.ctx[current_item] = citm
-                r = self._eval(self.collected_item, {}, self.ctx)
-                print 'eval:%s value:%s' % (self.collected_item, r)
+                r = self._eval(self.collected_item)
+                _LOG.debug('eval:%s value:%s', self.collected_item, r)
                 results.append(r)
             if iterations:
-                print 'add iteration'
+                _LOG.debug('add iteration')
                 prev_iterable, prev_item = iterations[-1]
                 try:
                     self.ctx[current_iterable] = iter(next(self.ctx[prev_iterable]))
